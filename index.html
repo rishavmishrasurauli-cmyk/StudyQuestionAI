@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>StudyQuestion AI</title>
+<meta name="description" content="Generate unlimited practice questions on any topic, in English, Hindi, or both." />
+<meta name="theme-color" content="#35519E" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icons/favicon.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="mobile-web-app-capable" content="yes" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+<style>
+  html, body { height: 100%; margin: 0; overscroll-behavior: none; }
+  body { background: #EDE6D4; }
+  #root { height: 100%; width: 100%; }
+  ::-webkit-scrollbar { width: 0; height: 0; }
+  .pb-safe { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+/* ---------------------------------------------------------------------- */
+/*  Inline icon set (no external icon library needed)                     */
+/* ---------------------------------------------------------------------- */
+const ICONS = {
+  home: '<path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9h12v-9"/><path d="M10 19v-5h4v5"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 2"/>',
+  bookmark: '<path d="M7 3h10v18l-5-3.5L7 21z"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M4.6 6.6l1.8 1.8M17.6 15.6l1.8 1.8M3 12h2.5M18.5 12H21M4.6 17.4l1.8-1.8M17.6 8.4l1.8-1.8"/>',
+  chevronLeft: '<path d="M15 5 8 12l7 7"/>',
+  chevronRight: '<path d="M9 5l7 7-7 7"/>',
+  copy: '<rect x="4" y="4" width="12" height="12" rx="2"/><rect x="8" y="8" width="12" height="12" rx="2"/>',
+  flag: '<path d="M5 21V4"/><path d="M5 4h13l-3 4 3 4H5"/>',
+  check: '<path d="M5 13l4 4L19 7"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  sun: '<circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v3M12 18.5v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2.5 12h3M18.5 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+  moon: '<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4 6.8 6.8 0 0 0 20 14.5z"/>',
+  laptop: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/>',
+  arrowLeft: '<path d="M19 12H5M11 5l-7 7 7 7"/>',
+  bookOpen: '<path d="M12 5.5C10 4 6.5 3.5 4 4v14c2.5-.5 6 0 8 1.5 2-1.5 5.5-2 8-1.5V4c-2.5-.5-6 0-8 1.5z"/><path d="M12 5.5v14"/>',
+  graduation: '<path d="M2 9l10-4.5L22 9l-10 4.5L2 9z"/><path d="M6 11.5V16c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.5"/>',
+  rotate: '<path d="M4 12a8 8 0 1 1 2.6 5.9"/><path d="M4 17v-4h4"/>',
+  star: '<path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.4 6.1 20.6l1.3-6.6-4.9-4.6 6.6-.8L12 2.5z"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="8" r="1" fill="currentColor" stroke="none"/>',
+  alert: '<path d="M12 3.5 22 20H2L12 3.5z"/><path d="M12 10v4"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/>',
+  sparkle: '<path d="M12 3l1.5 5L18 9.5 13.5 11 12 16l-1.5-5L5 9.5 9.5 8 12 3z"/>',
+  search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-5-5"/>',
+  pen: '<path d="M4 20l1-4L15.5 5.5a2 2 0 0 1 2.8 0l.2.2a2 2 0 0 1 0 2.8L8 19l-4 1z"/>',
+  shield: '<path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/>',
+  trash: '<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/>'
+};
+function Icon({ name, size = 18, color = "currentColor", style }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round" style={style}
+      dangerouslySetInnerHTML={{ __html: ICONS[name] || "" }} />
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Design tokens — "study notebook" theme                                */
+/* ---------------------------------------------------------------------- */
+const LIGHT = {
+  bg: "#F5F0E6", card: "#FFFFFF", ink: "#1E2A44", inkSoft: "#5B6478",
+  pen: "#35519E", penDark: "#243B75", penTint: "#E8ECF7",
+  red: "#A6402B", redTint: "#F3E3DE", green: "#2F7A4B", greenTint: "#E4F0E7",
+  amber: "#B4741A", amberTint: "#F5EADA", line: "#E1D7C0", lineStrong: "#CBBE9C",
+  overlay: "rgba(30,42,68,0.5)"
+};
+const DARK = {
+  bg: "#151A2B", card: "#1F2740", ink: "#EDE7D8", inkSoft: "#A9AFC4",
+  pen: "#8AA5E8", penDark: "#B0C2F0", penTint: "#28324F",
+  red: "#E08066", redTint: "#3A2A2A", green: "#79D19C", greenTint: "#223328",
+  amber: "#E0A94D", amberTint: "#332B1C", line: "#313A56", lineStrong: "#414C6E",
+  overlay: "rgba(0,0,0,0.6)"
+};
+const FONT_DISPLAY = '"Iowan Old Style", Georgia, "Times New Roman", serif';
+const FONT_BODY = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+
+/* ---------------------------------------------------------------------- */
+/*  Static data                                                           */
+/* ---------------------------------------------------------------------- */
+const CLASSES = ["Class 1","Class 2","Class 3","Class 4","Class 5","Class 6","Class 7","Class 8","Class 9","Class 10","Class 11","Class 12","College","Competitive Exam","Other / Custom"];
+const BOARDS = ["CBSE / NCERT","Bihar Board","ICSE / ISC","State Board","Other","General"];
+const SUBJECTS = ["Mathematics","Science","Physics","Chemistry","Biology","English","Hindi","Social Science","History","Geography","Political Science","Economics","Computer Science","Accountancy","Business Studies","Sanskrit","Other Subject"];
+const LANGUAGES = [{ id: "en", label: "English" }, { id: "hi", label: "Hindi" }, { id: "bi", label: "Hindi + English" }];
+const DIFFICULTIES = ["Easy","Medium","Hard","Mixed"];
+const QTYPES = ["MCQ","Short Answer","Long Answer","True / False","Fill in the Blanks","Very Short Answer","Numerical","Mixed Questions"];
+const COUNTS = [5,10,20,30,50,100];
+
+const SURPRISE_TOPICS = {
+  Mathematics: ["Matrices","Quadratic Equations","Trigonometric Ratios","Probability","Linear Equations"],
+  Science: ["Photosynthesis","States of Matter","Force and Motion","The Water Cycle","Sound Waves"],
+  Physics: ["Newton's Laws of Motion","Electric Current","Reflection of Light","Work and Energy"],
+  Chemistry: ["Periodic Table","Acids and Bases","Chemical Bonding","Organic Chemistry Basics"],
+  Biology: ["Cell Division","Human Digestive System","Photosynthesis","Genetics Basics"],
+  History: ["Mughal Empire","Indian Independence Movement","French Revolution","Harappan Civilisation"],
+  Geography: ["Monsoons in India","Types of Rocks","Climate Change","River Systems of India"],
+  "Political Science": ["Indian Constitution","Fundamental Rights","Federalism","Election Process"],
+  Economics: ["Demand and Supply","Inflation","National Income","Types of Markets"],
+  "Computer Science": ["Python Loops","Data Structures Basics","Binary Numbers","Functions in Programming"],
+  default: ["Photosynthesis","Matrices","Indian Constitution","Newton's Laws","Cell Division","Trigonometry"]
+};
+const LOADING_MESSAGES = ["Understanding your topic…","Creating questions…","Checking answers…","Preparing your practice set…"];
+
+/* ---------------------------------------------------------------------- */
+/*  Helpers + local persistence (real localStorage — works once hosted)   */
+/* ---------------------------------------------------------------------- */
+const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+const normalize = (s) => (s || "").toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ").trim();
+
+function safeGet(key, fallback) {
+  try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
+  catch (e) { return fallback; }
+}
+function safeSet(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+  catch (e) { console.error("storage set failed", e); return false; }
+}
+
+function buildDifficultyPlan(requested, count) {
+  if (requested !== "Mixed") return Array(count).fill(requested);
+  if (count < 5) { const cycle = ["Easy", "Medium", "Hard"]; return Array.from({ length: count }, (_, i) => cycle[i % 3]); }
+  const easy = Math.round(count * 0.3), hard = Math.round(count * 0.2);
+  const medium = count - easy - hard;
+  const plan = [...Array(easy).fill("Easy"), ...Array(medium).fill("Medium"), ...Array(hard).fill("Hard")];
+  for (let i = plan.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [plan[i], plan[j]] = [plan[j], plan[i]]; }
+  return plan;
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Mock question templates (swap generateQuestions() for a real backend  */
+/*  call later — see SETUP.md for the AI-provider integration point)      */
+/* ---------------------------------------------------------------------- */
+const MCQ_STEMS = [
+  { en: "Which of the following best describes {topic}?", hi: "निम्नलिखित में से कौन सा विकल्प {topic} का सबसे सही वर्णन करता है?" },
+  { en: "{topic} is primarily associated with which of these?", hi: "{topic} मुख्य रूप से इनमें से किससे संबंधित है?" },
+  { en: "Which statement about {topic} is correct?", hi: "{topic} के बारे में कौन सा कथन सही है?" },
+  { en: "Identify the correct point related to {topic}.", hi: "{topic} से संबंधित सही बिंदु पहचानें।" },
+  { en: "Which option correctly explains {topic}?", hi: "कौन सा विकल्प {topic} की सही व्याख्या करता है?" },
+  { en: "In the context of {subject}, what does {topic} refer to?", hi: "{subject} के संदर्भ में, {topic} का क्या अर्थ है?" }
+];
+const MCQ_OPTION_TEMPLATES = [
+  { en: "A key idea central to {topic}", hi: "{topic} से जुड़ा एक मुख्य विचार", correct: true },
+  { en: "A common misconception about {topic}", hi: "{topic} के बारे में एक सामान्य भ्रांति", correct: false },
+  { en: "A concept unrelated to {topic}", hi: "{topic} से असंबंधित एक अवधारणा", correct: false },
+  { en: "The opposite of {topic}'s main idea", hi: "{topic} के मुख्य विचार के विपरीत", correct: false }
+];
+const TF_STATEMENTS = [
+  { en: "{topic} plays an important role within {subject}.", hi: "{topic} का {subject} में एक महत्वपूर्ण स्थान है।", answer: true },
+  { en: "{topic} has no relevance to {subject} at all.", hi: "{topic} का {subject} से कोई संबंध नहीं है।", answer: false },
+  { en: "Understanding {topic} helps explain related ideas in {subject}.", hi: "{topic} को समझने से {subject} के संबंधित विचार स्पष्ट होते हैं।", answer: true },
+  { en: "{topic} was never studied as part of {subject}.", hi: "{topic} को कभी {subject} के अंतर्गत नहीं पढ़ाया गया।", answer: false }
+];
+const FILL_TEMPLATES = [
+  { en: "The idea of ______ is central to understanding {topic}.", hi: "______ की अवधारणा {topic} को समझने के लिए केंद्रीय है।" },
+  { en: "In {subject}, ______ is the term used to describe {topic}.", hi: "{subject} में, {topic} को दर्शाने के लिए ______ शब्द का प्रयोग होता है।" },
+  { en: "A student studying {classLevel} first encounters ______ while learning about {topic}.", hi: "{classLevel} का विद्यार्थी {topic} सीखते समय पहली बार ______ से परिचित होता है।" }
+];
+const SHORT_TEMPLATES = [
+  { en: "Briefly explain {topic}.", hi: "{topic} को संक्षेप में समझाइए।" },
+  { en: "State one important feature of {topic}.", hi: "{topic} की एक महत्वपूर्ण विशेषता बताइए।" },
+  { en: "Why is {topic} important in {subject}?", hi: "{subject} में {topic} क्यों महत्वपूर्ण है?" }
+];
+const VSHORT_TEMPLATES = [
+  { en: "Define {topic} in one line.", hi: "{topic} को एक पंक्ति में परिभाषित करें।" },
+  { en: "Name the concept closely related to {topic}.", hi: "{topic} से निकटता से जुड़ी अवधारणा का नाम बताइए।" }
+];
+const LONG_TEMPLATES = [
+  { en: "Explain {topic} in detail with suitable examples.", hi: "उचित उदाहरणों सहित {topic} की विस्तार से व्याख्या कीजिए।" },
+  { en: "Discuss the significance of {topic} within {subject}, giving reasons.", hi: "{subject} में {topic} के महत्व की चर्चा कारण सहित कीजिए।" }
+];
+const NUM_TEMPLATES = [
+  (base) => ({ en: `A quantity related to {topic} starts at ${base} and increases by 25%. What is the new value?`, hi: `{topic} से जुड़ी एक राशि ${base} से शुरू होती है और 25% बढ़ जाती है। नया मान क्या होगा?`, value: Math.round(base * 1.25) }),
+  (base) => ({ en: `If ${base} units are divided equally among 4 groups while studying {topic}, how many units does each group get?`, hi: `{topic} पढ़ते समय ${base} इकाइयों को 4 समूहों में बराबर बाँटा जाए, तो प्रत्येक समूह को कितनी इकाइयाँ मिलेंगी?`, value: Math.round(base / 4) }),
+  (base) => ({ en: `Two values related to {topic}, ${base} and ${base + 12}, are added together. What is the sum?`, hi: `{topic} से जुड़े दो मान ${base} और ${base + 12} को जोड़ा जाए, तो योग क्या होगा?`, value: base + (base + 12) })
+];
+function fill(tpl, ctx) { return tpl.replace(/\{topic\}/g, ctx.topic).replace(/\{subject\}/g, ctx.subject).replace(/\{classLevel\}/g, ctx.classLevel); }
+function pickType(qtype) {
+  if (qtype !== "Mixed Questions") return qtype;
+  const pool = ["MCQ","Short Answer","Long Answer","True / False","Fill in the Blanks","Very Short Answer","Numerical"];
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+function makeQuestion(ctx, type, difficulty, seed, avoid) {
+  const en_expl = (why) => `This is correct because ${why}, at a level suitable for ${ctx.classLevel}.`;
+  const hi_expl = (why) => `यह सही है क्योंकि ${why}, जो ${ctx.classLevel} के स्तर के अनुकूल है।`;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const s = seed + attempt;
+    let q = null;
+    if (type === "MCQ") {
+      const stem = MCQ_STEMS[s % MCQ_STEMS.length];
+      const opts = MCQ_OPTION_TEMPLATES.map((o) => ({ ...o }));
+      for (let i = opts.length - 1; i > 0; i--) { const j = (s + i * 7) % (i + 1); [opts[i], opts[j]] = [opts[j], opts[i]]; }
+      const options = opts.map((o, i) => ({ id: String.fromCharCode(65 + i), english: fill(o.en, ctx), hindi: fill(o.hi, ctx), correct: o.correct }));
+      const correct = options.find((o) => o.correct);
+      q = { type: "mcq", difficulty, questionEnglish: fill(stem.en, ctx), questionHindi: fill(stem.hi, ctx),
+        options: options.map(({ id, english, hindi }) => ({ id, english, hindi })), correctAnswer: correct.id,
+        answerEnglish: correct.english, answerHindi: correct.hindi,
+        explanationEnglish: en_expl(`it names the central idea behind ${ctx.topic}`),
+        explanationHindi: hi_expl(`यह ${ctx.topic} के मुख्य विचार को दर्शाता है`) };
+    } else if (type === "True / False") {
+      const t = TF_STATEMENTS[s % TF_STATEMENTS.length];
+      q = { type: "truefalse", difficulty, questionEnglish: fill(t.en, ctx), questionHindi: fill(t.hi, ctx),
+        options: [{ id: "T", english: "True", hindi: "सत्य" }, { id: "F", english: "False", hindi: "असत्य" }],
+        correctAnswer: t.answer ? "T" : "F", answerEnglish: t.answer ? "True" : "False", answerHindi: t.answer ? "सत्य" : "असत्य",
+        explanationEnglish: en_expl(`the statement ${t.answer ? "correctly" : "incorrectly"} reflects how ${ctx.topic} relates to ${ctx.subject}`),
+        explanationHindi: hi_expl(`यह कथन ${ctx.topic} और ${ctx.subject} के संबंध को ${t.answer ? "सही" : "गलत"} रूप से दर्शाता है`) };
+    } else if (type === "Fill in the Blanks") {
+      const t = FILL_TEMPLATES[s % FILL_TEMPLATES.length];
+      q = { type: "fillblank", difficulty, questionEnglish: fill(t.en, ctx), questionHindi: fill(t.hi, ctx),
+        answerEnglish: ctx.topic, answerHindi: ctx.topic,
+        explanationEnglish: en_expl(`${ctx.topic} is the term the sentence is describing`),
+        explanationHindi: hi_expl(`${ctx.topic} ही वह शब्द है जिसका वाक्य में वर्णन है`) };
+    } else if (type === "Short Answer") {
+      const t = SHORT_TEMPLATES[s % SHORT_TEMPLATES.length];
+      q = { type: "short", difficulty, questionEnglish: fill(t.en, ctx), questionHindi: fill(t.hi, ctx),
+        answerEnglish: `${ctx.topic} refers to a core idea within ${ctx.subject}; a good answer names its key feature and one example.`,
+        answerHindi: `${ctx.topic}, ${ctx.subject} की एक मुख्य अवधारणा है; अच्छे उत्तर में इसकी विशेषता और एक उदाहरण होना चाहिए।`,
+        explanationEnglish: en_expl(`it summarises the key feature expected at this class level`),
+        explanationHindi: hi_expl(`यह इस कक्षा स्तर पर अपेक्षित मुख्य विशेषता को दर्शाता है`) };
+    } else if (type === "Very Short Answer") {
+      const t = VSHORT_TEMPLATES[s % VSHORT_TEMPLATES.length];
+      q = { type: "veryshort", difficulty, questionEnglish: fill(t.en, ctx), questionHindi: fill(t.hi, ctx),
+        answerEnglish: `${ctx.topic} — a key concept in ${ctx.subject}.`, answerHindi: `${ctx.topic} — ${ctx.subject} की एक मुख्य अवधारणा।`,
+        explanationEnglish: en_expl(`it gives a precise one-line identification of ${ctx.topic}`),
+        explanationHindi: hi_expl(`यह ${ctx.topic} की सटीक एक-पंक्ति पहचान देता है`) };
+    } else if (type === "Long Answer") {
+      const t = LONG_TEMPLATES[s % LONG_TEMPLATES.length];
+      q = { type: "long", difficulty, questionEnglish: fill(t.en, ctx), questionHindi: fill(t.hi, ctx),
+        answerEnglish: `A strong answer introduces ${ctx.topic}, explains its main aspects with an example, and connects it back to ${ctx.subject}.`,
+        answerHindi: `एक अच्छे उत्तर में ${ctx.topic} का परिचय, उदाहरण सहित मुख्य पहलुओं की व्याख्या, और ${ctx.subject} से संबंध होना चाहिए।`,
+        explanationEnglish: en_expl(`it covers definition, explanation and example in the depth expected for ${ctx.classLevel}`),
+        explanationHindi: hi_expl(`इसमें परिभाषा, व्याख्या और उदाहरण ${ctx.classLevel} के अनुरूप गहराई से शामिल हैं`) };
+    } else if (type === "Numerical") {
+      const base = 8 + ((s * 7) % 40);
+      const t = NUM_TEMPLATES[s % NUM_TEMPLATES.length](base);
+      q = { type: "numerical", difficulty, questionEnglish: fill(t.en, ctx), questionHindi: fill(t.hi, ctx),
+        answerEnglish: String(t.value), answerHindi: String(t.value),
+        explanationEnglish: en_expl(`the calculation follows directly from the numbers given in the question`),
+        explanationHindi: hi_expl(`यह गणना प्रश्न में दिए गए संख्याओं से सीधे निकलती है`) };
+    }
+    const sig = normalize(q.questionEnglish);
+    if (!avoid.has(sig)) { avoid.add(sig); return q; }
+  }
+  return null;
+}
+function generateQuestions({ topic, subject, classLevel, difficulty, qtype, count }, avoidSet, startSeed = 0) {
+  const ctx = { topic: topic.trim(), subject, classLevel };
+  const diffPlan = buildDifficultyPlan(difficulty, count);
+  const questions = []; let seed = startSeed;
+  for (let i = 0; i < count; i++) {
+    const type = pickType(qtype);
+    const q = makeQuestion(ctx, type, diffPlan[i], seed, avoidSet);
+    seed += 3;
+    if (q) questions.push({ id: uid(), ...q });
+  }
+  return { questions, nextSeed: seed };
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Small building blocks                                                 */
+/* ---------------------------------------------------------------------- */
+function Pill({ label, active, onClick, T }) {
+  return (
+    <button onClick={onClick} className="px-3.5 py-2 rounded-full text-sm transition-colors"
+      style={{ background: active ? T.pen : "transparent", color: active ? "#fff" : T.ink, border: `1px solid ${active ? T.pen : T.line}`, fontFamily: FONT_BODY, fontWeight: active ? 600 : 500 }}>
+      {label}
+    </button>
+  );
+}
+function FieldLabel({ children, T }) { return <div className="text-sm mb-2" style={{ color: T.inkSoft, fontFamily: FONT_BODY, fontWeight: 600 }}>{children}</div>; }
+function SectionCard({ children, T, style }) { return <div className="rounded-2xl p-4" style={{ background: T.card, border: `1px solid ${T.line}`, ...style }}>{children}</div>; }
+function PrimaryButton({ children, onClick, T, disabled, full = true, icon }) {
+  return (
+    <button onClick={onClick} disabled={disabled} className={`flex items-center justify-center gap-2 rounded-xl py-3.5 px-5 text-base transition-opacity ${full ? "w-full" : ""}`}
+      style={{ background: disabled ? T.lineStrong : T.pen, color: "#fff", fontFamily: FONT_BODY, fontWeight: 700, opacity: disabled ? 0.6 : 1 }}>
+      {icon && <Icon name={icon} size={18} color="#fff" />}{children}
+    </button>
+  );
+}
+function GhostButton({ children, onClick, T, icon, tone }) {
+  const color = tone === "red" ? T.red : tone === "green" ? T.green : T.pen;
+  return (
+    <button onClick={onClick} className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-4 text-sm"
+      style={{ background: "transparent", color, border: `1px solid ${color}`, fontFamily: FONT_BODY, fontWeight: 600 }}>
+      {icon && <Icon name={icon} size={15} color={color} />}{children}
+    </button>
+  );
+}
+function TopBar({ title, subtitle, onBack, T, right }) {
+  return (
+    <div className="flex items-center gap-3 px-4 pt-5 pb-4 sticky top-0 z-10" style={{ background: T.bg }}>
+      {onBack && <button onClick={onBack} className="p-1.5 rounded-full -ml-1.5" style={{ color: T.ink }}><Icon name="arrowLeft" size={20} /></button>}
+      <div className="flex-1 min-w-0">
+        <div className="text-lg truncate" style={{ fontFamily: FONT_DISPLAY, color: T.ink, fontWeight: 700 }}>{title}</div>
+        {subtitle && <div className="text-xs truncate" style={{ color: T.inkSoft, fontFamily: FONT_BODY }}>{subtitle}</div>}
+      </div>
+      {right}
+    </div>
+  );
+}
+function Modal({ title, onClose, T, children }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style={{ background: T.overlay }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full sm:max-w-sm sm:rounded-2xl rounded-t-2xl p-5 max-h-[80vh] overflow-y-auto" style={{ background: T.card, fontFamily: FONT_BODY }}>
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-base" style={{ fontFamily: FONT_DISPLAY, color: T.ink, fontWeight: 700 }}>{title}</div>
+          <button onClick={onClose}><Icon name="x" size={18} color={T.inkSoft} /></button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+function Snackbar({ text, T }) {
+  if (!text) return null;
+  return <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full text-sm shadow-lg" style={{ background: T.ink, color: T.bg, fontFamily: FONT_BODY, fontWeight: 600 }}>{text}</div>;
+}
+function EmptyState({ icon, title, body, T }) {
+  return (
+    <div className="flex flex-col items-center text-center py-16 px-8">
+      <div className="w-14 h-14 rounded-full flex items-center justify-center mb-4" style={{ background: T.penTint }}><Icon name={icon} size={24} color={T.pen} /></div>
+      <div className="text-base mb-1" style={{ fontFamily: FONT_DISPLAY, color: T.ink, fontWeight: 700 }}>{title}</div>
+      <div className="text-sm" style={{ color: T.inkSoft, fontFamily: FONT_BODY }}>{body}</div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Onboarding                                                             */
+/* ---------------------------------------------------------------------- */
+function Onboarding({ onDone, T }) {
+  const [i, setI] = useState(0);
+  const slides = [
+    { icon: "search", title: "Any Topic", body: "Generate practice questions from any topic — no fixed syllabus list required." },
+    { icon: "bookOpen", title: "Hindi + English", body: "Practice in the language you understand best, or see both together." },
+    { icon: "graduation", title: "Practice & Improve", body: "Take quizzes, review explanations, and track how you're doing." }
+  ];
+  const s = slides[i];
+  return (
+    <div className="h-full flex flex-col px-6 pt-16 pb-8" style={{ background: T.bg }}>
+      <button onClick={onDone} className="self-end text-sm mb-8" style={{ color: T.inkSoft, fontFamily: FONT_BODY, fontWeight: 600 }}>Skip</button>
+      <div className="flex-1 flex flex-col items-center justify-center text-center">
+        <div className="w-20 h-20 rounded-full flex items-center justify-center mb-8" style={{ background: T.penTint }}><Icon name={s.icon} size={34} color={T.pen} /></div>
+        <div className="text-2xl mb-3" style={{ fontFamily: FONT_DISPLAY, color: T.ink, fontWeight: 700 }}>{s.title}</div>
+        <div className="text-sm max-w-xs" style={{ color: T.inkSoft, fontFamily: FONT_BODY, lineHeight: 1.6 }}>{s.body}</div>
+      </div>
+      <div className="flex justify-center gap-2 mb-8">
+        {slides.map((_, idx) => <div key={idx} className="h-1.5 rounded-full transition-all" style={{ width: idx === i ? 22 : 7, background: idx === i ? T.pen : T.line }} />)}
+      </div>
+      <PrimaryButton T={T} onClick={() => (i < 2 ? setI(i + 1) : onDone())}>{i < 2 ? "Next" : "Start Learning"}</PrimaryButton>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Home screen                                                            */
+/* ---------------------------------------------------------------------- */
+function HomeScreen({ T, form, setForm, onGenerate, onSurprise }) {
+  const [customSubject, setCustomSubject] = useState("");
+  const [customCount, setCustomCount] = useState("");
+  const [error, setError] = useState("");
+  const subject = form.subject === "Other Subject" ? customSubject : form.subject;
+  const count = form.count === "Custom" ? Number(customCount) : form.count;
+  const topicSuggestions = SURPRISE_TOPICS[form.subject] || SURPRISE_TOPICS.default;
+
+  const handleGenerate = () => {
+    if (!form.topic.trim()) { setError("Enter a topic to generate questions."); return; }
+    if (form.subject === "Other Subject" && !customSubject.trim()) { setError("Enter your subject name."); return; }
+    if (form.count === "Custom" && (!count || count < 1 || count > 200)) { setError("Enter a custom count between 1 and 200."); return; }
+    setError("");
+    onGenerate({ ...form, subject: subject || "General", count: count || 10 });
+  };
+
+  return (
+    <div className="px-4 pb-6">
+      <div className="pt-6 pb-5 text-center">
+        <div className="w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center" style={{ background: T.pen }}><Icon name="pen" size={22} color="#fff" /></div>
+        <div className="text-2xl" style={{ fontFamily: FONT_DISPLAY, color: T.ink, fontWeight: 700 }}>StudyQuestion AI</div>
+        <div className="text-sm mt-1" style={{ color: T.inkSoft, fontFamily: FONT_BODY }}>Practice any topic. Anytime.</div>
+      </div>
+
+      <SectionCard T={T} style={{ marginBottom: 14 }}>
+        <FieldLabel T={T}>Board</FieldLabel>
+        <div className="flex flex-wrap gap-2 mb-4">{BOARDS.map((b) => <Pill key={b} T={T} label={b} active={form.board === b} onClick={() => setForm({ ...form, board: b })} />)}</div>
+        <FieldLabel T={T}>Class</FieldLabel>
+        <select value={form.classLevel} onChange={(e) => setForm({ ...form, classLevel: e.target.value })} className="w-full rounded-xl px-3.5 py-3 text-sm mb-4" style={{ background: T.bg, color: T.ink, border: `1px solid ${T.line}`, fontFamily: FONT_BODY }}>
+          {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <FieldLabel T={T}>Subject</FieldLabel>
+        <select value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} className="w-full rounded-xl px-3.5 py-3 text-sm mb-2" style={{ background: T.bg, color: T.ink, border: `1px solid ${T.line}`, fontFamily: FONT_BODY }}>
+          {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+        {form.subject === "Other Subject" && (
+          <input value={customSubject} onChange={(e) => setCustomSubject(e.target.value)} placeholder="Enter subject name" className="w-full rounded-xl px-3.5 py-3 text-sm mb-2" style={{ background: T.bg, color: T.ink, border: `1px solid ${T.line}`, fontFamily: FONT_BODY }} />
+        )}
+        <div className="mb-1 mt-3 flex items-center justify-between">
+          <FieldLabel T={T}>Topic</FieldLabel>
+          <button onClick={() => onSurprise(topicSuggestions)} className="flex items-center gap-1 text-xs pb-2" style={{ color: T.pen, fontFamily: FONT_BODY, fontWeight: 600 }}><Icon name="sparkle" size={13} color={T.pen} /> Surprise me</button>
+        </div>
+        <input value={form.topic} onChange={(e) => setForm({ ...form, topic: e.target.value })} placeholder="e.g. Matrices, Photosynthesis, Mughal Empire" className="w-full rounded-xl px-3.5 py-3 text-sm" style={{ background: T.bg, color: T.ink, border: `1px solid ${T.line}`, fontFamily: FONT_BODY }} />
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {topicSuggestions.slice(0, 4).map((t) => <button key={t} onClick={() => setForm({ ...form, topic: t })} className="text-xs px-2.5 py-1 rounded-full" style={{ background: T.penTint, color: T.pen, fontFamily: FONT_BODY }}>{t}</button>)}
+        </div>
+      </SectionCard>
+
+      <SectionCard T={T} style={{ marginBottom: 14 }}>
+        <FieldLabel T={T}>Language</FieldLabel>
+        <div className="flex flex-wrap gap-2 mb-4">{LANGUAGES.map((l) => <Pill key={l.id} T={T} label={l.label} active={form.language === l.id} onClick={() => setForm({ ...form, language: l.id })} />)}</div>
+        <FieldLabel T={T}>Difficulty</FieldLabel>
+        <div className="flex flex-wrap gap-2 mb-4">{DIFFICULTIES.map((d) => <Pill key={d} T={T} label={d} active={form.difficulty === d} onClick={() => setForm({ ...form, difficulty: d })} />)}</div>
+        <FieldLabel T={T}>Question Type</FieldLabel>
+        <div className="flex flex-wrap gap-2 mb-4">{QTYPES.map((q) => <Pill key={q} T={T} label={q} active={form.qtype === q} onClick={() => setForm({ ...form, qtype: q })} />)}</div>
+        <FieldLabel T={T}>Number of Questions</FieldLabel>
+        <div className="flex flex-wrap gap-2">
+          {COUNTS.map((c) => <Pill key={c} T={T} label={String(c)} active={form.count === c} onClick={() => setForm({ ...form, count: c })} />)}
+          <Pill T={T} label="Custom" active={form.count === "Custom"} onClick={() => setForm({ ...form, count: "Custom" })} />
+        </div>
+        {form.count === "Custom" && <input value={customCount} onChange={(e) => setCustomCount(e.target.value.replace(/\D/g, ""))} placeholder="Enter a number (1–200)" inputMode="numeric" className="w-full rounded-xl px-3.5 py-3 text-sm mt-2" style={{ background: T.bg, color: T.ink, border: `1px solid ${T.line}`, fontFamily: FONT_BODY }} />}
+      </SectionCard>
+
+      {error && <div className="text-sm mb-3 px-1" style={{ color: T.red, fontFamily: FONT_BODY }}>{error}</div>}
+      <PrimaryButton T={T} onClick={handleGenerate}>Generate Questions</PrimaryButton>
+      <div className="text-xs text-center mt-3" style={{ color: T.inkSoft, fontFamily: FONT_BODY }}>Questions are generated with the help of AI and may occasionally contain mistakes.</div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Loading screen                                                         */
+/* ---------------------------------------------------------------------- */
+function LoadingScreen({ T }) {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => { const t = setInterval(() => setIdx((i) => (i + 1) % LOADING_MESSAGES.length), 750); return () => clearInterval(t); }, []);
+  return (
+    <div className="h-full flex flex-col items-center justify-center px-8" style={{ background: T.bg }}>
+      <div className="w-14 h-14 rounded-full mb-6" style={{ border: `3px solid ${T.line}`, borderTopColor: T.pen, animation: "spin 0.9s linear infinite" }} />
+      <div className="text-sm text-center" style={{ color: T.inkSoft, fontFamily: FONT_BODY, fontWeight: 600 }}>{LOADING_MESSAGES[idx]}</div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Question card                                                          */
+/* ---------------------------------------------------------------------- */
+function QuestionCard({ q, index, T, language, isSaved, onToggleSave, onCopy, onReport }) {
+  const [showAnswer, setShowAnswer] = useState(false);
+  const [showExpl, setShowExpl] = useState(false);
+  const showEn = language !== "hi", showHi = language !== "en";
+  return (
+    <div className="rounded-2xl p-4 mb-3.5" style={{ background: T.card, border: `1px solid ${T.line}`, borderLeftWidth: 3, borderLeftColor: T.pen }}>
+      <div className="flex items-start justify-between mb-2">
+        <div className="text-xs px-2 py-0.5 rounded-full" style={{ background: T.penTint, color: T.pen, fontFamily: FONT_BODY, fontWeight: 700 }}>Q{index + 1} · {q.difficulty}</div>
+        <button onClick={() => onToggleSave(q)}><Icon name="star" size={17} color={isSaved ? T.amber : T.inkSoft} style={{ fill: isSaved ? T.amber : "none" }} /></button>
+      </div>
+      {showEn && <div className="text-[15px] mb-1" style={{ color: T.ink, fontFamily: FONT_BODY, fontWeight: 600, lineHeight: 1.5 }}>{q.questionEnglish}</div>}
+      {showHi && <div className="text-[15px] mb-1" style={{ color: T.ink, fontFamily: FONT_BODY, fontWeight: 600, lineHeight: 1.6 }}>{q.questionHindi}</div>}
+      {q.options && (
+        <div className="mt-2.5 space-y-1.5">
+          {q.options.map((o) => (
+            <div key={o.id} className="text-sm px-3 py-2 rounded-lg flex gap-2" style={{ background: showAnswer && o.id === q.correctAnswer ? T.greenTint : T.bg, color: T.ink, fontFamily: FONT_BODY, border: `1px solid ${showAnswer && o.id === q.correctAnswer ? T.green : T.line}` }}>
+              <span style={{ fontWeight: 700, color: T.inkSoft }}>{o.id}.</span><span>{showEn && o.english}{showEn && showHi && " / "}{showHi && o.hindi}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {showAnswer && !q.options && (
+        <div className="mt-2.5 text-sm px-3 py-2.5 rounded-lg" style={{ background: T.greenTint, color: T.ink, fontFamily: FONT_BODY, border: `1px solid ${T.green}` }}>
+          {showEn && <div>{q.answerEnglish}</div>}{showHi && <div className={showEn ? "mt-1" : ""}>{q.answerHindi}</div>}
+        </div>
+      )}
+      {showExpl && (
+        <div className="mt-2 text-xs px-3 py-2.5 rounded-lg" style={{ background: T.amberTint, color: T.inkSoft, fontFamily: FONT_BODY, lineHeight: 1.5 }}>
+          {showEn && <div>{q.explanationEnglish}</div>}{showHi && <div className={showEn ? "mt-1" : ""}>{q.explanationHindi}</div>}
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2 mt-3">
+        <GhostButton T={T} icon="check" onClick={() => setShowAnswer((v) => !v)}>{showAnswer ? "Hide Answer" : "Show Answer"}</GhostButton>
+        <GhostButton T={T} icon="info" onClick={() => setShowExpl((v) => !v)}>{showExpl ? "Hide Explanation" : "Explanation"}</GhostButton>
+        <GhostButton T={T} icon="copy" onClick={() => onCopy(q, language)}>Copy</GhostButton>
+        <GhostButton T={T} icon="flag" tone="red" onClick={() => onReport(q)}>Report</GhostButton>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Results / Quiz / Practice screens                                      */
+/* ---------------------------------------------------------------------- */
+function ResultsScreen({ set, T, onBack, onGenerateMore, onStartQuiz, onStartPractice, savedIds, onToggleSave, onCopy, onReport, generatingMore }) {
+  return (
+    <div className="h-full overflow-y-auto" style={{ background: T.bg }}>
+      <TopBar T={T} onBack={onBack} title={set.topic} subtitle={`${set.classLevel} · ${set.subject} · ${set.questions.length} Questions`} />
+      <div className="px-4 pb-6">
+        <div className="flex gap-2 mb-4">
+          <GhostButton T={T} icon="graduation" onClick={() => onStartQuiz(set)}>Start Quiz</GhostButton>
+          <GhostButton T={T} icon="bookOpen" onClick={() => onStartPractice(set)}>Practice Mode</GhostButton>
+        </div>
+        {set.questions.map((q, i) => <QuestionCard key={q.id} q={q} index={i} T={T} language={set.language} isSaved={savedIds.has(q.id)} onToggleSave={onToggleSave} onCopy={onCopy} onReport={onReport} />)}
+        {generatingMore ? <div className="text-center text-sm py-3" style={{ color: T.inkSoft, fontFamily: FONT_BODY }}>Generating more questions…</div> :
+          <PrimaryButton T={T} full onClick={() => onGenerateMore(set, 10)}>Generate 10 More</PrimaryButton>}
+      </div>
+    </div>
+  );
+}
+
+function QuizScreen({ set, T, onBack, onFinish }) {
+  const [i, setI] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const q = set.questions[i];
+  const current = answers[q.id];
+  const showEn = set.language !== "hi", showHi = set.language !== "en";
+  const select = (optId) => { const correct = optId === q.correctAnswer; setAnswers({ ...answers, [q.id]: { selected: optId, status: correct ? "correct" : "incorrect" } }); };
+  const selfMark = (status) => setAnswers({ ...answers, [q.id]: { selected: "self", status } });
+  const next = () => (i < set.questions.length - 1 ? setI(i + 1) : onFinish(answers));
+  return (
+    <div className="h-full flex flex-col" style={{ background: T.bg }}>
+      <TopBar T={T} onBack={onBack} title="Quiz Mode" subtitle={`Question ${i + 1} of ${set.questions.length}`} />
+      <div className="flex-1 overflow-y-auto px-4 pb-4">
+        <div className="h-1.5 rounded-full mb-4" style={{ background: T.line }}><div className="h-1.5 rounded-full transition-all" style={{ width: `${((i + 1) / set.questions.length) * 100}%`, background: T.pen }} /></div>
+        <SectionCard T={T}>
+          {showEn && <div className="text-base mb-1" style={{ fontFamily: FONT_BODY, fontWeight: 600, color: T.ink }}>{q.questionEnglish}</div>}
+          {showHi && <div className="text-base mb-3" style={{ fontFamily: FONT_BODY, fontWeight: 600, color: T.ink }}>{q.questionHindi}</div>}
+          {q.options ? (
+            <div className="space-y-2 mt-2">
+              {q.options.map((o) => {
+                const chosen = current?.selected === o.id, revealed = !!current, isCorrect = o.id === q.correctAnswer;
+                let bg = T.bg, border = T.line;
+                if (revealed && isCorrect) { bg = T.greenTint; border = T.green; }
+                else if (revealed && chosen && !isCorrect) { bg = T.redTint; border = T.red; }
+                else if (chosen) { bg = T.penTint; border = T.pen; }
+                return (
+                  <button key={o.id} disabled={!!current} onClick={() => select(o.id)} className="w-full text-left px-3.5 py-3 rounded-xl text-sm flex gap-2" style={{ background: bg, border: `1px solid ${border}`, color: T.ink, fontFamily: FONT_BODY }}>
+                    <span style={{ fontWeight: 700, color: T.inkSoft }}>{o.id}.</span><span>{showEn && o.english}{showEn && showHi && " / "}{showHi && o.hindi}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="mt-2">
+              {!current ? <GhostButton T={T} tone="green" icon="check" onClick={() => selfMark("pending")}>Reveal Answer</GhostButton> : (
+                <>
+                  <div className="text-sm px-3 py-2.5 rounded-lg mb-2" style={{ background: T.greenTint, border: `1px solid ${T.green}`, fontFamily: FONT_BODY }}>
+                    {showEn && <div>{q.answerEnglish}</div>}{showHi && <div>{q.answerHindi}</div>}
+                  </div>
+                  {current.status === "pending" && (
+                    <div className="flex gap-2">
+                      <GhostButton T={T} tone="green" icon="check" onClick={() => selfMark("correct")}>I got it right</GhostButton>
+                      <GhostButton T={T} tone="red" icon="x" onClick={() => selfMark("incorrect")}>I got it wrong</GhostButton>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+          {current && current.status !== "pending" && (
+            <div className="text-xs px-3 py-2.5 rounded-lg mt-3" style={{ background: T.amberTint, color: T.inkSoft, fontFamily: FONT_BODY, lineHeight: 1.5 }}>
+              {showEn && <div>{q.explanationEnglish}</div>}{showHi && <div>{q.explanationHindi}</div>}
+            </div>
+          )}
+        </SectionCard>
+      </div>
+      <div className="px-4 pb-6"><PrimaryButton T={T} disabled={!current || current.status === "pending"} onClick={next}>{i < set.questions.length - 1 ? "Next Question" : "Finish Quiz"}</PrimaryButton></div>
+    </div>
+  );
+}
+
+function QuizResultScreen({ set, answers, T, onBack, onRetry, onGenerateMore }) {
+  const total = set.questions.length;
+  let correct = 0, incorrect = 0, unattempted = 0;
+  set.questions.forEach((q) => { const a = answers[q.id]; if (!a || a.status === "pending") unattempted++; else if (a.status === "correct") correct++; else incorrect++; });
+  const pct = Math.round((correct / total) * 100);
+  return (
+    <div className="h-full overflow-y-auto" style={{ background: T.bg }}>
+      <TopBar T={T} onBack={onBack} title="Quiz Result" subtitle={set.topic} />
+      <div className="px-4 pb-6">
+        <SectionCard T={T} style={{ textAlign: "center", padding: 28, marginBottom: 16 }}>
+          <div className="text-4xl" style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, color: T.pen }}>{pct}%</div>
+          <div className="text-sm mt-1" style={{ color: T.inkSoft, fontFamily: FONT_BODY }}>Score · {correct} of {total} correct</div>
+        </SectionCard>
+        <div className="grid grid-cols-3 gap-2 mb-5">
+          <SectionCard T={T} style={{ textAlign: "center", padding: 14 }}><div style={{ color: T.green, fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 20 }}>{correct}</div><div className="text-xs mt-0.5" style={{ color: T.inkSoft, fontFamily: FONT_BODY }}>Correct</div></SectionCard>
+          <SectionCard T={T} style={{ textAlign: "center", padding: 14 }}><div style={{ color: T.red, fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 20 }}>{incorrect}</div><div className="text-xs mt-0.5" style={{ color: T.inkSoft, fontFamily: FONT_BODY }}>Incorrect</div></SectionCard>
+          <SectionCard T={T} style={{ textAlign: "center", padding: 14 }}><div style={{ color: T.inkSoft, fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 20 }}>{unattempted}</div><div className="text-xs mt-0.5" style={{ color: T.inkSoft, fontFamily: FONT_BODY }}>Skipped</div></SectionCard>
+        </div>
+        <div className="flex gap-2 mb-5">
+          <GhostButton T={T} icon="rotate" onClick={onRetry}>Retry Quiz</GhostButton>
+          <GhostButton T={T} icon="sparkle" onClick={onGenerateMore}>New Questions</GhostButton>
+        </div>
+        {set.questions.map((q, i) => {
+          const a = answers[q.id]; const status = !a || a.status === "pending" ? "unattempted" : a.status;
+          return (
+            <div key={q.id} className="rounded-2xl p-3.5 mb-2.5" style={{ background: T.card, border: `1px solid ${T.line}` }}>
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-xs" style={{ color: T.inkSoft, fontFamily: FONT_BODY, fontWeight: 700 }}>Q{i + 1}</div>
+                <div className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: status === "correct" ? T.greenTint : status === "incorrect" ? T.redTint : T.line, color: status === "correct" ? T.green : status === "incorrect" ? T.red : T.inkSoft, fontFamily: FONT_BODY, fontWeight: 700 }}>
+                  {status === "correct" ? <Icon name="check" size={12} color={T.green} /> : status === "incorrect" ? <Icon name="x" size={12} color={T.red} /> : null}
+                  {status === "correct" ? "Correct" : status === "incorrect" ? "Incorrect" : "Not attempted"}
+                </div>
+              </div>
+              <div className="text-sm" style={{ color: T.ink, fontFamily: FONT_BODY }}>{set.language !== "hi" ? q.questionEnglish : q.questionHindi}</div>
+              <div className="text-xs mt-1.5" style={{ color: T.inkSoft, fontFamily: FONT_BODY }}>Correct answer: {set.language !== "hi" ? q.answerEnglish : q.answerHindi}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PracticeScreen({ set, T, onBack }) {
+  const [i, setI] = useState(0);
+  const [showAnswer, setShowAnswer] = useState(false);
+  const q = set.questions[i];
+  const showEn = set.language !== "hi", showHi = set.language !== "en";
+  const go = (dir) => { setShowAnswer(false); setI((v) => Math.min(Math.max(v + dir, 0), set.questions.length - 1)); };
+  return (
+    <div className="h-full flex flex-col" style={{ background: T.bg }}>
+      <TopBar T={T} onBack={onBack} title="Practice Mode" subtitle={`Question ${i + 1} of ${set.questions.length}`} />
+      <div className="flex-1 overflow-y-auto px-4">
+        <SectionCard T={T}>
+          <div className="text-xs mb-2 px-2 py-0.5 rounded-full inline-block" style={{ background: T.penTint, color: T.pen, fontFamily: FONT_BODY, fontWeight: 700 }}>{q.difficulty}</div>
+          {showEn && <div className="text-base mb-1" style={{ fontFamily: FONT_BODY, fontWeight: 600, color: T.ink }}>{q.questionEnglish}</div>}
+          {showHi && <div className="text-base" style={{ fontFamily: FONT_BODY, fontWeight: 600, color: T.ink }}>{q.questionHindi}</div>}
+          {q.options && (
+            <div className="mt-3 space-y-1.5">
+              {q.options.map((o) => (
+                <div key={o.id} className="text-sm px-3 py-2 rounded-lg flex gap-2" style={{ background: showAnswer && o.id === q.correctAnswer ? T.greenTint : T.bg, border: `1px solid ${showAnswer && o.id === q.correctAnswer ? T.green : T.line}`, color: T.ink, fontFamily: FONT_BODY }}>
+                  <span style={{ fontWeight: 700, color: T.inkSoft }}>{o.id}.</span><span>{showEn && o.english}{showEn && showHi && " / "}{showHi && o.hindi}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {showAnswer && (
+            <div className="mt-3 text-sm px-3 py-2.5 rounded-lg" style={{ background: T.greenTint, border: `1px solid ${T.green}`, fontFamily: FONT_BODY }}>
+              {!q.options && (<>{showEn && <div>{q.answerEnglish}</div>}{showHi && <div>{q.answerHindi}</div>}</>)}
+              <div className="text-xs mt-2" style={{ color: T.inkSoft }}>{showEn && q.explanationEnglish}{showHi && <div className={showEn ? "mt-1" : ""}>{q.explanationHindi}</div>}</div>
+            </div>
+          )}
+          <div className="mt-3"><GhostButton T={T} icon="check" onClick={() => setShowAnswer((v) => !v)}>{showAnswer ? "Hide Answer" : "Show Answer"}</GhostButton></div>
+        </SectionCard>
+      </div>
+      <div className="px-4 py-5 flex gap-3">
+        <button onClick={() => go(-1)} disabled={i === 0} className="flex-1 flex items-center justify-center gap-1 rounded-xl py-3" style={{ border: `1px solid ${T.line}`, color: i === 0 ? T.inkSoft : T.ink, fontFamily: FONT_BODY, fontWeight: 600, opacity: i === 0 ? 0.5 : 1 }}><Icon name="chevronLeft" size={17} /> Previous</button>
+        <button onClick={() => go(1)} disabled={i === set.questions.length - 1} className="flex-1 flex items-center justify-center gap-1 rounded-xl py-3" style={{ background: T.pen, color: "#fff", fontFamily: FONT_BODY, fontWeight: 700, opacity: i === set.questions.length - 1 ? 0.5 : 1 }}>Next <Icon name="chevronRight" size={17} color="#fff" /></button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/*  History / Saved / Settings                                            */
+/* ---------------------------------------------------------------------- */
+function HistoryScreen({ T, history, onOpen, onDelete }) {
+  if (!history.length) return <EmptyState T={T} icon="clock" title="No question sets yet" body="Generate your first practice set to see it here." />;
+  return (
+    <div className="px-4 pb-6 pt-2">
+      {history.map((h) => (
+        <div key={h.id} className="rounded-2xl p-4 mb-3 flex items-center gap-3" style={{ background: T.card, border: `1px solid ${T.line}` }}>
+          <button onClick={() => onOpen(h)} className="flex-1 text-left min-w-0">
+            <div className="text-sm truncate" style={{ fontFamily: FONT_BODY, fontWeight: 700, color: T.ink }}>{h.topic}</div>
+            <div className="text-xs mt-0.5" style={{ color: T.inkSoft, fontFamily: FONT_BODY }}>{h.classLevel} · {h.subject} · {h.questions.length} Questions</div>
+            <div className="text-xs mt-0.5" style={{ color: T.inkSoft, fontFamily: FONT_BODY }}>{h.dateLabel}</div>
+          </button>
+          <button onClick={() => onDelete(h.id)}><Icon name="trash" size={16} color={T.inkSoft} /></button>
+        </div>
+      ))}
+    </div>
+  );
+}
+function SavedScreen({ T, saved, onCopy, onReport, onToggleSave }) {
+  const [filterSubject, setFilterSubject] = useState("All");
+  const subjects = useMemo(() => ["All", ...new Set(saved.map((s) => s.subject))], [saved]);
+  const filtered = filterSubject === "All" ? saved : saved.filter((s) => s.subject === filterSubject);
+  if (!saved.length) return <EmptyState T={T} icon="bookmark" title="No saved questions yet" body="Tap the star on any question to save it here." />;
+  return (
+    <div className="px-4 pb-6 pt-2">
+      <div className="flex flex-wrap gap-2 mb-3">{subjects.map((s) => <Pill key={s} T={T} label={s} active={filterSubject === s} onClick={() => setFilterSubject(s)} />)}</div>
+      {filtered.map((q, i) => <QuestionCard key={q.id} q={q} index={i} T={T} language={q.savedLanguage || "bi"} isSaved={true} onToggleSave={onToggleSave} onCopy={onCopy} onReport={onReport} />)}
+    </div>
+  );
+}
+function SettingsScreen({ T, settings, setSettings, onClearHistory, onOpenModal }) {
+  const Row = ({ children }) => <div className="flex items-center justify-between py-3.5" style={{ borderBottom: `1px solid ${T.line}` }}>{children}</div>;
+  const Label = ({ children }) => <div className="text-sm" style={{ color: T.ink, fontFamily: FONT_BODY, fontWeight: 600 }}>{children}</div>;
+  return (
+    <div className="px-4 pb-8 pt-2">
+      <SectionCard T={T} style={{ marginBottom: 16 }}>
+        <Row><Label>Default Language</Label><select value={settings.language} onChange={(e) => setSettings({ ...settings, language: e.target.value })} className="text-sm rounded-lg px-2.5 py-1.5" style={{ background: T.bg, color: T.ink, border: `1px solid ${T.line}`, fontFamily: FONT_BODY }}>{LANGUAGES.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}</select></Row>
+        <Row><Label>Default Board</Label><select value={settings.board} onChange={(e) => setSettings({ ...settings, board: e.target.value })} className="text-sm rounded-lg px-2.5 py-1.5" style={{ background: T.bg, color: T.ink, border: `1px solid ${T.line}`, fontFamily: FONT_BODY }}>{BOARDS.map((b) => <option key={b} value={b}>{b}</option>)}</select></Row>
+        <Row><Label>Default Class</Label><select value={settings.classLevel} onChange={(e) => setSettings({ ...settings, classLevel: e.target.value })} className="text-sm rounded-lg px-2.5 py-1.5" style={{ background: T.bg, color: T.ink, border: `1px solid ${T.line}`, fontFamily: FONT_BODY }}>{CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}</select></Row>
+        <div className="pt-3.5">
+          <Label>Theme</Label>
+          <div className="flex gap-2 mt-2.5">
+            {[{ id: "light", icon: "sun", label: "Light" }, { id: "dark", icon: "moon", label: "Dark" }, { id: "system", icon: "laptop", label: "System" }].map((o) => (
+              <button key={o.id} onClick={() => setSettings({ ...settings, theme: o.id })} className="flex-1 flex flex-col items-center gap-1 py-2.5 rounded-xl" style={{ background: settings.theme === o.id ? T.penTint : T.bg, border: `1px solid ${settings.theme === o.id ? T.pen : T.line}` }}>
+                <Icon name={o.icon} size={16} color={settings.theme === o.id ? T.pen : T.inkSoft} />
+                <span className="text-xs" style={{ color: settings.theme === o.id ? T.pen : T.inkSoft, fontFamily: FONT_BODY, fontWeight: 600 }}>{o.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </SectionCard>
+      <SectionCard T={T} style={{ marginBottom: 16 }}>
+        {[["Privacy Policy", "privacy", "shield"], ["AI Disclaimer", "disclaimer", "alert"], ["About App", "about", "info"], ["Report a Problem", "report-app", "flag"]].map(([label, key, icon]) => (
+          <button key={key} onClick={() => onOpenModal(key)} className="w-full flex items-center gap-3 py-3.5" style={{ borderBottom: `1px solid ${T.line}` }}>
+            <Icon name={icon} size={17} color={T.inkSoft} />
+            <span className="text-sm flex-1 text-left" style={{ color: T.ink, fontFamily: FONT_BODY, fontWeight: 600 }}>{label}</span>
+            <Icon name="chevronRight" size={16} color={T.inkSoft} />
+          </button>
+        ))}
+      </SectionCard>
+      <GhostButton T={T} tone="red" icon="trash" onClick={onClearHistory}>Clear History</GhostButton>
+    </div>
+  );
+}
+
+function BottomNav({ tab, setTab, T }) {
+  const items = [{ id: "home", icon: "home", label: "Home" }, { id: "history", icon: "clock", label: "History" }, { id: "saved", icon: "bookmark", label: "Saved" }, { id: "settings", icon: "settings", label: "Settings" }];
+  return (
+    <div className="flex items-stretch px-2 pt-2 pb-safe" style={{ background: T.card, borderTop: `1px solid ${T.line}` }}>
+      {items.map((it) => (
+        <button key={it.id} onClick={() => setTab(it.id)} className="flex-1 flex flex-col items-center gap-1 py-1.5">
+          <Icon name={it.icon} size={20} color={tab === it.id ? T.pen : T.inkSoft} />
+          <span className="text-[11px]" style={{ color: tab === it.id ? T.pen : T.inkSoft, fontFamily: FONT_BODY, fontWeight: tab === it.id ? 700 : 500 }}>{it.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Root App                                                               */
+/* ---------------------------------------------------------------------- */
+const DEFAULT_SETTINGS = { language: "bi", board: "CBSE / NCERT", classLevel: "Class 10", theme: "system", onboardingSeen: false };
+const DEFAULT_FORM = { board: "CBSE / NCERT", classLevel: "Class 10", subject: "Mathematics", topic: "", language: "bi", difficulty: "Mixed", qtype: "MCQ", count: 10 };
+
+function App() {
+  const [settings, setSettingsState] = useState(() => ({ ...DEFAULT_SETTINGS, ...safeGet("settings", {}) }));
+  const [history, setHistoryState] = useState(() => safeGet("history", []));
+  const [saved, setSavedState] = useState(() => safeGet("saved", []));
+  const [form, setForm] = useState(() => {
+    const s = safeGet("settings", {});
+    return { ...DEFAULT_FORM, board: s.board || DEFAULT_FORM.board, classLevel: s.classLevel || DEFAULT_FORM.classLevel, language: s.language || DEFAULT_FORM.language };
+  });
+  const [tab, setTab] = useState("home");
+  const [overlay, setOverlay] = useState(null);
+  const [generating, setGenerating] = useState(false);
+  const [generatingMore, setGeneratingMore] = useState(false);
+  const [modal, setModal] = useState(null);
+  const [snack, setSnack] = useState("");
+  const [systemDark, setSystemDark] = useState(false);
+  const avoidRef = useRef(new Set());
+  const seedRef = useRef(0);
+
+  useEffect(() => {
+    try {
+      const mq = window.matchMedia("(prefers-color-scheme: dark)");
+      setSystemDark(mq.matches);
+      const l = (e) => setSystemDark(e.matches);
+      mq.addEventListener("change", l);
+      return () => mq.removeEventListener("change", l);
+    } catch (e) {}
+  }, []);
+
+  const isDark = settings.theme === "dark" || (settings.theme === "system" && systemDark);
+  const T = isDark ? DARK : LIGHT;
+  const setSettings = (next) => { setSettingsState(next); safeSet("settings", next); };
+  const showSnack = (text) => { setSnack(text); setTimeout(() => setSnack(""), 1800); };
+  const savedIds = useMemo(() => new Set(saved.map((s) => s.id)), [saved]);
+  const persistHistory = (next) => { setHistoryState(next); safeSet("history", next.slice(0, 60)); };
+  const persistSaved = (next) => { setSavedState(next); safeSet("saved", next); };
+
+  const handleGenerate = useCallback((params) => {
+    setGenerating(true);
+    avoidRef.current = new Set(); seedRef.current = 0;
+    setTimeout(() => {
+      const { questions, nextSeed } = generateQuestions(params, avoidRef.current, seedRef.current);
+      seedRef.current = nextSeed;
+      const set = { id: uid(), topic: params.topic.trim(), classLevel: params.classLevel, subject: params.subject, board: params.board, language: params.language, difficulty: params.difficulty, qtype: params.qtype, questions, dateLabel: "Today", createdAt: Date.now() };
+      persistHistory([set, ...history]);
+      setOverlay({ type: "results", set });
+      setGenerating(false);
+    }, 1400);
+  }, [history]);
+
+  const handleGenerateMore = useCallback((set, n) => {
+    setGeneratingMore(true);
+    setTimeout(() => {
+      const { questions, nextSeed } = generateQuestions({ topic: set.topic, subject: set.subject, classLevel: set.classLevel, difficulty: set.difficulty, qtype: set.qtype, count: n }, avoidRef.current, seedRef.current);
+      seedRef.current = nextSeed;
+      const updated = { ...set, questions: [...set.questions, ...questions] };
+      persistHistory(history.map((h) => (h.id === set.id ? updated : h)));
+      setOverlay({ type: "results", set: updated });
+      setGeneratingMore(false);
+    }, 900);
+  }, [history]);
+
+  const handleCopy = (q, language) => {
+    const showEn = language !== "hi", showHi = language !== "en";
+    let text = "";
+    if (showEn) text += q.questionEnglish + "\n";
+    if (showHi) text += q.questionHindi + "\n";
+    if (q.options) q.options.forEach((o) => { text += `${o.id}. ${showEn ? o.english : ""}${showEn && showHi ? " / " : ""}${showHi ? o.hindi : ""}\n`; });
+    text += `\nAnswer: ${showEn ? q.answerEnglish : q.answerHindi}`;
+    try { navigator.clipboard.writeText(text); } catch (e) {}
+    showSnack("Question copied");
+  };
+  const handleReport = () => setModal("report-question");
+  const handleToggleSave = (q) => {
+    if (savedIds.has(q.id)) { persistSaved(saved.filter((s) => s.id !== q.id)); showSnack("Removed from saved"); }
+    else { const ctxSet = overlay?.set; persistSaved([{ ...q, subject: ctxSet?.subject || "General", savedLanguage: ctxSet?.language || settings.language }, ...saved]); showSnack("Question saved"); }
+  };
+  const openSet = (set) => setOverlay({ type: "results", set });
+  const deleteSet = (id) => persistHistory(history.filter((h) => h.id !== id));
+  const clearHistory = () => { persistHistory([]); showSnack("History cleared"); };
+
+  return (
+    <div className="h-full w-full flex items-center justify-center" style={{ background: isDark ? "#0B0E17" : "#EDE6D4", fontFamily: FONT_BODY }}>
+      <div className="relative w-full h-full sm:max-w-sm sm:h-[850px] sm:rounded-[2rem] sm:shadow-2xl overflow-hidden flex flex-col" style={{ background: T.bg }}>
+        {!settings.onboardingSeen ? (
+          <Onboarding T={T} onDone={() => setSettings({ ...settings, onboardingSeen: true })} />
+        ) : overlay ? (
+          <div className="flex-1 overflow-hidden">
+            {overlay.type === "results" && <ResultsScreen set={overlay.set} T={T} onBack={() => setOverlay(null)} onGenerateMore={handleGenerateMore} generatingMore={generatingMore} onStartQuiz={(set) => setOverlay({ type: "quiz", set })} onStartPractice={(set) => setOverlay({ type: "practice", set })} savedIds={savedIds} onToggleSave={handleToggleSave} onCopy={handleCopy} onReport={handleReport} />}
+            {overlay.type === "quiz" && <QuizScreen set={overlay.set} T={T} onBack={() => setOverlay({ type: "results", set: overlay.set })} onFinish={(answers) => setOverlay({ type: "quizResult", set: overlay.set, answers })} />}
+            {overlay.type === "quizResult" && <QuizResultScreen set={overlay.set} answers={overlay.answers} T={T} onBack={() => setOverlay({ type: "results", set: overlay.set })} onRetry={() => setOverlay({ type: "quiz", set: overlay.set })} onGenerateMore={() => { setOverlay({ type: "results", set: overlay.set }); handleGenerateMore(overlay.set, 10); }} />}
+            {overlay.type === "practice" && <PracticeScreen set={overlay.set} T={T} onBack={() => setOverlay({ type: "results", set: overlay.set })} />}
+          </div>
+        ) : generating ? <LoadingScreen T={T} /> : (
+          <>
+            <div className="flex-1 overflow-y-auto">
+              {tab === "home" && <HomeScreen T={T} form={form} setForm={setForm} onGenerate={handleGenerate} onSurprise={(topics) => setForm({ ...form, topic: topics[Math.floor(Math.random() * topics.length)] })} />}
+              {tab === "history" && <HistoryScreen T={T} history={history} onOpen={openSet} onDelete={deleteSet} />}
+              {tab === "saved" && <SavedScreen T={T} saved={saved} onCopy={handleCopy} onReport={handleReport} onToggleSave={handleToggleSave} />}
+              {tab === "settings" && <SettingsScreen T={T} settings={settings} setSettings={setSettings} onClearHistory={clearHistory} onOpenModal={setModal} />}
+            </div>
+            <BottomNav tab={tab} setTab={setTab} T={T} />
+          </>
+        )}
+
+        {modal === "privacy" && <Modal T={T} title="Privacy Policy" onClose={() => setModal(null)}><p className="text-sm leading-relaxed" style={{ color: T.inkSoft }}>StudyQuestion AI does not require login. Your recent topics, saved questions, quiz history and preferences are stored locally on your device. The board, class, subject, topic, language and difficulty you select are sent to an AI service solely to generate practice questions — no personal information, contacts, camera, microphone or location is accessed. See the full Privacy Policy page for details.</p></Modal>}
+        {modal === "disclaimer" && <Modal T={T} title="AI Disclaimer" onClose={() => setModal(null)}><p className="text-sm leading-relaxed" style={{ color: T.inkSoft }}>Questions and answers are generated with the help of AI and may occasionally contain mistakes. Verify important academic information with your teacher or official study material.</p></Modal>}
+        {modal === "about" && <Modal T={T} title="About App" onClose={() => setModal(null)}><p className="text-sm leading-relaxed" style={{ color: T.inkSoft }}>StudyQuestion AI helps students generate unlimited practice questions on any topic, in English, Hindi, or both — with Quiz and Practice modes to build understanding.</p></Modal>}
+        {(modal === "report-app" || modal === "report-question") && (
+          <Modal T={T} title="Report a Problem" onClose={() => setModal(null)}>
+            <div className="space-y-2">
+              {["Incorrect Answer","Question is unclear","Inappropriate content","Duplicate question","Other"].map((r) => (
+                <button key={r} onClick={() => { setModal(null); showSnack("Thanks — we'll review this."); }} className="w-full text-left text-sm px-3.5 py-2.5 rounded-xl" style={{ border: `1px solid ${T.line}`, color: T.ink }}>{r}</button>
+              ))}
+            </div>
+          </Modal>
+        )}
+        <Snackbar text={snack} T={T} />
+      </div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+</script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("service-worker.js").catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
